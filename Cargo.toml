@@ -1,0 +1,25 @@
+[package]
+name = "ctx"
+version = "0.1.0"
+edition = "2021"
+description = "Context-compaction engine: decide what to keep, decide what to cut, and never do it silently."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/ctx"
+keywords = ["llm", "context-window", "compaction", "memory", "ai"]
+categories = ["ai"]
+
+[lib]
+name = "ctx"
+path = "src/lib.rs"
+
+[[example]]
+name = "quickstart"
+path = "examples/quickstart.rs"
+
+[[example]]
+name = "bench"
+path = "examples/bench.rs"
+
+[[example]]
+name = "support_sam"
+path = "examples/support_sam.rs"
