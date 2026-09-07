@@ -156,11 +156,10 @@ loudly instead of letting the numbers drift.
 ## What's still honest future work
 
 - **Real-model grading.** Retention bounds answer correctness from above; the
-  remaining step is feeding `kept_history` to a model and grading answers.
-  The harness mode exists and the first keyed run landed 2026-09-06
-  (gemini-3.5-flash-lite, n=50 — see "Real-Model Answer Eval" below); still
-  open is repeating it across models and runs (3+ runs per conversation,
-  mean ± std dev).
+  harness mode exists and two keyed runs have landed (gemini-3.5-flash-lite,
+  n=50, 2026-09-06; gpt-oss-20b via FreeLLMAPI, n=50, 2026-09-07 — see
+  "Real-Model Answer Eval" below); still open is stronger models and repeat
+  runs (3+ runs per conversation, mean ± std dev).
 - **Cost per correct answer.** Tokens-per-retained-needle divides out of the
   table (avg tokens ÷ retention) — multiply by your provider's price.
 - **Bigger n for the Moirai/Mnemosyne gap.** p=0.25 at n=50: rerun the same
@@ -174,14 +173,15 @@ loudly instead of letting the numbers drift.
 
 ---
 
-## Real-Model Answer Eval (n=50, gemini-3.5-flash-lite — measured 2026-09-06)
+## Real-Model Answer Eval (two keyed runs, n=50 each — measured 2026-09-06 and 2026-09-07)
 
-> **No material contradiction with the retention eval.** Same ranking
-> (Lethe < Moirai ≤ Mnemosyne), same significant gap (McNemar p=0.0003 on
-> L2 answers). Two honest attenuations: Mnemosyne's perfect 100% retention
-> becomes 96% answers (summaries preserve text the model sometimes can't
-> use), and everything below was produced by a lite-class free-tier model —
-> read it as "with Flash-class answers", not as a universal constant.
+> **No material contradiction with the retention eval — twice.** Same ranking
+> (Lethe < Moirai ≤ Mnemosyne) under two different models, significant gaps
+> both times (McNemar p=0.0003 and p=0.0002 on L2 answers). Two honest
+> attenuations, replicated: every strategy loses points going from retained
+> text to model answers, and the loss grows as the model shrinks. Both runs
+> used small free-tier models — read them as "with Flash-class answers" and
+> "with gpt-oss-20b answers", not as universal constants.
 
 ### Why a second eval
 
@@ -269,7 +269,7 @@ standing rule: **if model results contradict the retention conclusions in any
 material way, that contradiction leads this section** — it is the finding, not
 an embarrassment to bury.
 
-### Results (first complete run — verbatim)
+### Results — Run 1 (first complete run, gemini-3.5-flash-lite — verbatim)
 
 Run history, disclosed: the first attempt targeted `gemini-2.5-flash` and
 failed whole (Google retired the ID for new users); the second attempt on
@@ -327,3 +327,60 @@ token usage as reported by the API, latencies, run metadata) is committed
 alongside this table. **Do not merge this table with the text-retention
 tables above** — n=50 keyed answers vs. deterministic text checks are
 different evidence for different claims.
+
+### Results — Run 2 (replication, gpt-oss-20b via FreeLLMAPI/Groq free tier — verbatim, measured 2026-09-07)
+
+Run history, disclosed: a direct-Groq attempt at 3s spacing died at 136/150
+calls against free-tier rate limits — partial, discarded; the complete run
+below went through the self-hosted FreeLLMAPI gateway (failover + gentler
+8s pacing), same model, same 50 conversations. Prices zeroed (free tier).
+
+```text
+==== Real-model answer eval (n=50, openai-compat base=http://localhost:3001/v1 model=openai/gpt-oss-20b temp=0 max_tokens=256) ====
+system prompt: "Answer the user's final question using only the conversation history above. Reply in one or two sentences." (temperature 0, max_tokens 256)
+graders: L1 = keyword substring (strict baseline), L2 = rubric essentials (paraphrase-tolerant)
+
+strategy         n      L1      L2   agree cost/call       medMs tokIn+Out
+lethe           50   46.0%   56.0%   86.0%   0.0000$      1154.7     23913
+moirai          50   72.0%   88.0%   80.0%   0.0000$      1185.8     22974
+mnemosyne       50   80.0%   90.0%   86.0%   0.0000$      1163.8     23556
+McNemar (L2 answers) lethe vs moirai: discordant 15/0, chi2=13.07, p=0.0002
+
+retention (text) vs answer (L2) — same conversations:
+strategy    bothRight retainedButWrong  droppedButRight  bothWrong
+lethe              28                3                0         19
+moirai             44                3                0          3
+mnemosyne          45                5                0          0
+retained-but-wrong (lethe; compaction ok, generation failed): convo_08, convo_19, convo_23
+retained-but-wrong (moirai; compaction ok, generation failed): convo_08, convo_19, convo_23
+retained-but-wrong (mnemosyne; compaction ok, generation failed): convo_08, convo_19, convo_23, convo_45, convo_47
+
+saved benchmarks/model_answers.json (150 rows, 0 errors)
+model spend total: $0.0000 (150 rows; usage reported by API)
+```
+
+Reading it, against Run 1:
+
+- **Third confirmation of the ranking.** Retention 62/94/100 → Gemini answers
+  62/92/96 → oss answers 56/88/90 (L2). No contradiction anywhere; the
+  Lethe–Moirai gap stays significant (p=0.0002).
+- **Attenuation scales with model size, as expected.** Retention→answer loss:
+  Gemini −0/−2/−4 points, oss −6/−6/−10. Smaller model, more generation
+  failures — now measured, not assumed.
+- **The two-grader design earns its keep here.** Gemini at temp 0 echoed
+  keywords (L1/L2 agreed ~98–100%); oss paraphrases, and L1/L2 split wide
+  open (46 vs 56, 72 vs 88, 80 vs 90). One grader would have told either an
+  over-strict or an over-loose story.
+- **The same trio fails everywhere.** Convos 08, 19, 23 are retained-but-wrong
+  on *all three* strategies — a model-side control replicating across runs:
+  some failures belong to generation, provably not to compaction.
+- **The compression artifact replicates.** Mnemosyne's convo_45 and convo_47
+  keep the keyword inside summaries the model then can't use — now a
+  two-model finding, not a one-model anecdote.
+- **Dropped-but-right stays 0** across all 300 keyed answers to date: no
+  inference, no luck — when the text is gone, it's gone.
+
+Note on `model_answers.json`: it always reflects the most recent complete run
+(currently Run 2, gpt-oss-20b) — the Run 1 table above is the durable record
+of the earlier run. Future runs overwrite it; quote tables, not the file, for
+older runs.
