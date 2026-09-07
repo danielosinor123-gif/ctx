@@ -47,6 +47,33 @@ model answers. No model runs in this eval; "retained" is the honest verb.
 
 *(Full benchmark methodology and eval set in `/benchmarks` — rerun it yourself with `cargo run --example bench`, don't take our word for it.)*
 
+## See it in action
+
+One command runs a worked 24-turn support chat — order number stated at turn 2, cracked screen at turn 3, a billing tangent at turns 8–14, "replacement, not refund" at turn 19 — through all three strategies under one tight budget, receipts included:
+
+```bash
+cargo run --example support_sam
+```
+
+```text
+lethe:     kept 7/24 messages, 87/387 tokens (budget 90) | critical facts dropped: 2
+moirai:    kept 7/24 messages, 90/387 tokens (budget 90) | critical facts dropped: 0
+mnemosyne: kept 6/7 messages, 90/387 tokens (budget 90)  | critical facts dropped: 2
+
+User: so what's happening with my order?
+Bot (lethe):   Here's where things stand: you asked for a replacement rather than
+               a refund, so that's what's in motion. But I've lost the thread on
+               your order number and what arrived damaged — could you repeat it?
+Bot (moirai):  Here's where things stand: you asked for a replacement rather than
+               a refund, so that's what's in motion. That's for order 4471-B, the
+               one that arrived with a cracked screen. Expect a shipping update
+               within 2 business days.
+```
+
+Same history, same budget — the only difference is what got kept. (The demo
+uses a small illustrative budget and a simulated backend that sees only the
+compacted history — exactly the constraint a real model call would face.)
+
 ## The install
 
 ```bash
